@@ -4,7 +4,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
 
-    # TODO: Security
+    # Security
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
 
     # App
     APP_NAME: str = "POS System"
@@ -12,6 +14,5 @@ class Settings(BaseSettings):
     APP_DESCRIPTION: str = "A simple point-of-sale system"
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
-
 
 settings = Settings()
