@@ -1,7 +1,11 @@
+import uuid
+from fastapi import Request, HTTPException, status, Depends
+from sqlalchemy.orm import Session
 from .models import User
 from .schemas import UserCreate, UserCreateResponse, LoginRequest, LoginResponse, UserBase
 from passlib.context import CryptContext
 from src.core.config import settings
+from src.core.database import get_db
 from datetime import datetime, timedelta
 import re
 import jwt
@@ -86,3 +90,41 @@ def create_access_token(data):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> UserBase:
+    # 1. Obtener el token
+    access_token = request.cookies.get("access_token")
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No autenticado. Inicie sesion para continuar."
+        )
+    
+    # 2. Decodificar y validar el JWT
+    token_content = jwt.decode(access_token, settings.SECRET_KEY, algorithms=settings.ALGORITHM)
+    
+    # 3. Obtener el identificador del usuario
+    user_id = token_content.get("sub", None)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El token no contiene el ID del usuario autenticado"
+        )
+    
+    # 4. Obtener usuario desde la BD (sub viene como string, User.id es UUID)
+    user_db = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
+    if not user_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se encontro el usuario en la base de datos"
+        )
+    
+    # 5. Devolver usuario
+    return UserBase(
+        id=user_db.id,
+        email=user_db.email,
+        username=user_db.username,
+        is_active=user_db.is_active,
+        created_at=user_db.created_at,
+        updated_at=user_db.updated_at,
+    )
