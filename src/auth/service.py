@@ -3,14 +3,29 @@ from fastapi import Request, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from .models import User
 from .schemas import UserCreate, UserCreateResponse, LoginRequest, LoginResponse, UserBase
-from passlib.context import CryptContext
+import bcrypt
 from src.core.config import settings
 from src.core.database import get_db
 from datetime import datetime, timedelta
 import re
 import jwt
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _hash_password(password: str) -> str:
+    """Hash password with bcrypt. Passwords longer than 72 bytes are truncated (bcrypt limit)."""
+    password_bytes = password.encode("utf-8")
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
+
+
+def _verify_password(plain: str, hashed: str) -> bool:
+    """Verify plain password against bcrypt hash."""
+    plain_bytes = plain.encode("utf-8")
+    if len(plain_bytes) > 72:
+        plain_bytes = plain_bytes[:72]
+    return bcrypt.checkpw(plain_bytes, hashed.encode("utf-8"))
 
 def validate_password(password: str) -> bool:
     # Al menos: una mayúscula, una minúscula, un número, un especial (@#$%^&+=), mínimo 8 caracteres
@@ -28,7 +43,7 @@ def email_exists(db, email: str) -> bool:
 
 def create_user(db, user_in: UserCreate) -> UserCreateResponse:
     # 1. Hashear la contraseña
-    hashed = pwd_context.hash(user_in.password)
+    hashed = _hash_password(user_in.password)
 
     # 2. Crear instancia del modelo ORM
     db_user = User(
@@ -55,7 +70,7 @@ def login_user(db, credentials: LoginRequest) -> LoginResponse:
     user_db = db.query(User).filter(User.email == credentials.email).first()
 
     # 2. Verificamos contraseña
-    is_correct = pwd_context.verify(credentials.password, user_db.hashed_password)
+    is_correct = _verify_password(credentials.password, user_db.hashed_password)
     if not is_correct:
         return None
 
