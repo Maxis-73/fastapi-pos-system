@@ -5,7 +5,7 @@ from .service import create_user, email_exists, get_current_user, validate_passw
 from src.core.config import settings
 from src.core.database import get_db
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/create", response_model=UserCreateResponse)
 async def register(user_in: UserCreate, db: Session = Depends(get_db)):

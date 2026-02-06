@@ -4,14 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.core.config import settings
 from src.core.database import Base, engine
 from src.auth.routes import router as user_router
+from src.categories.routes import router as categories_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create DB tables on startup."""
+    # Creamos las tablas al arrancar la aplicación
     Base.metadata.create_all(bind=engine)
     yield
 
-# Create FastAPI instance
 app = FastAPI(
     title=settings.APP_NAME,
     description=settings.APP_DESCRIPTION,
@@ -19,7 +19,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,6 +30,7 @@ app.add_middleware(
 
 # Routes
 app.include_router(user_router)
+app.include_router(categories_router)
 
 @app.get("/")
 async def root():
